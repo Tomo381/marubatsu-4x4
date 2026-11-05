@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4×4 〇×ゲーム</title>
+<style>
+  :root {
+    --bg-top: #1e293b;
+    --bg-bottom: #0f172a;
+    --panel: rgba(30, 41, 59, 0.72);
+    --cell: #f8fafc;
+    --cell-hover: #e2e8f0;
+    --x: #2563eb;
+    --o: #e11d48;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --win-bg: #fde68a;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
+    background: radial-gradient(circle at top, var(--bg-top), var(--bg-bottom) 70%);
+    color: var(--text);
+  }
+
+  .app {
+    width: min(100%, 460px);
+    padding: 28px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 24px;
+    background: var(--panel);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    font-size: 1.6rem;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  .rules {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .order {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .order-label {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .order label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.12);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .order label:hover {
+    background: rgba(148, 163, 184, 0.22);
+  }
+
+  input[type="radio"] {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+
+  #restart {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    background: var(--accent);
+    color: #082f49;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.1s;
+  }
+
+  #restart:hover {
+    filter: brightness(1.1);
+  }
+
+  #restart:active {
+    transform: scale(0.97);
+  }
+
+  .status {
+    min-height: 1.6em;
+    margin: 0 0 16px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .status.win {
+    color: #4ade80;
+  }
+
+  .status.lose {
+    color: #fb7185;
+  }
+
+  .status.draw {
+    color: #facc15;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    aspect-ratio: 1 / 1;
+  }
+
+  .cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    background: var(--cell);
+    color: #0f172a;
+    font-family: inherit;
+    font-size: clamp(1.8rem, 10vw, 3rem);
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  }
+
+  .cell:hover:not(:disabled) {
+    background: var(--cell-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  }
+
+  .cell:disabled {
+    opacity: 1;
+    cursor: default;
+  }
+
+  .cell.mark-x {
+    color: var(--x);
+  }
+
+  .cell.mark-o {
+    color: var(--o);
+  }
+
+  .cell.win {
+    background: var(--win-bg);
+    box-shadow: 0 0 0 3px #f59e0b inset, 0 0 24px rgba(245, 158, 11, 0.5);
+    animation: pop 0.35s ease;
+  }
+
+  @keyframes pop {
+    from {
+      transform: scale(0.92);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  .hint {
+    margin: 16px 0 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  @media (max-width: 420px) {
+    .app {
+      padding: 20px;
+      border-radius: 18px;
+    }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <h1>4×4 〇×ゲーム</h1>
+  <p class="rules">縦・横・斜めに3つ並べたら勝ち。コンピューターと対戦しよう。</p>
+
+  <div class="controls">
+    <div class="order" role="group" aria-label="あなたの手番">
+      <span class="order-label">手番</span>
+      <label><input type="radio" name="order" value="first" checked> 先手（×）</label>
+      <label><input type="radio" name="order" value="second"> 後手（○）</label>
+    </div>
+    <button id="restart" type="button">新しいゲーム</button>
+  </div>
+
+  <p id="status" class="status" role="status" aria-live="polite">あなたの番です（×）</p>
+
+  <section id="board" class="board" aria-label="4×4 ゲーム盤"></section>
+
+  <p class="hint">空きマスをクリックして置いてください。</p>
+</main>
+
+<script>
+const SIZE = 4;
+const WIN_LENGTH = 3;
+const TOTAL_CELLS = SIZE * SIZE;
+const WIN_SCORE = 1000000;
+const SEARCH_DEPTH = 6;
+const RANDOM_CHANCE = 0.12;
+const RANDOM_MARGIN = 30;
+
+const LINES = buildLines();
+const CELL_WEIGHTS = buildCellWeights();
+const CELL_ORDER = [...Array(TOTAL_CELLS).keys()].sort((a, b) => CELL_WEIGHTS[b] - CELL_WEIGHTS[a]);
+
+const state = {
+  board: Array(TOTAL_CELLS).fill(''),
+  playerMark: 'X',
+  aiMark: 'O',
+  current: 'X',
+  gameOver: false,
+  thinking: false,
+  winner: null,
+  winningLine: null,
+};
+
+let aiTimer = null;
+
+function buildLines() {
+  const lines = [];
+  for (let row = 0; row < SIZE; row++) {
+    for (let col = 0; col <= SIZE - WIN_LENGTH; col++) {
+      lines.push([row * SIZE + col, row * SIZE + col + 1, row * SIZE + col + 2]);
+    }
+  }
+  for (let col = 0; col < SIZE; col++) {
+    for (let row = 0; row <= SIZE - WIN_LENGTH; row++) {
+      lines.push([row * SIZE + col, (row + 1) * SIZE + col, (row + 2) * SIZE + col]);
+    }
+  }
+  for (let row = 0; row <= SIZE - WIN_LENGTH; row++) {
+    for (let col = 0; col <= SIZE - WIN_LENGTH; col++) {
+      lines.push([row * SIZE + col, (row + 1) * SIZE + col + 1, (row + 2) * SIZE + col + 2]);
+    }
+  }
+  for (let row = 0; row <= SIZE - WIN_LENGTH; row++) {
+    for (let col = WIN_LENGTH - 1; col < SIZE; col++) {
+      lines.push([row * SIZE + col, (row + 1) * SIZE + col - 1, (row + 2) * SIZE + col - 2]);
+    }
+  }
+  return lines;
+}
+
+function buildCellWeights() {
+  const weights = Array(TOTAL_CELLS).fill(0);
+  for (const line of LINES) {
+    for (const index of line) {
+      weights[index] += 1;
+    }
+  }
+  return weights;
+}
+
+function getWinner(board) {
+  for (const [a, b, c] of LINES) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return { mark: board[a], line: [a, b, c] };
+    }
+  }
+  return null;
+}
+
+function orderedEmptyCells(board) {
+  const cells = [];
+  for (const index of CELL_ORDER) {
+    if (!board[index]) cells.push(index);
+  }
+  return cells;
+}
+
+function evaluateBoard(board, aiMark, humanMark) {
+  let score = 0;
+  for (const [a, b, c] of LINES) {
+    let ai = 0;
+    let human = 0;
+    for (const index of [a, b, c]) {
+      if (board[index] === aiMark) ai++;
+      else if (board[index] === humanMark) human++;
+    }
+    if (ai && human) continue;
+    if (ai === 3) score += WIN_SCORE;
+    else if (ai === 2) score += 120;
+    else if (ai === 1) score += 10;
+    if (human === 3) score -= WIN_SCORE;
+    else if (human === 2) score -= 150;
+    else if (human === 1) score -= 12;
+  }
+  return score;
+}
+
+function minimax(board, depth, alpha, beta, maximizing, aiMark, humanMark) {
+  const result = getWinner(board);
+  if (result) {
+    return result.mark === aiMark ? WIN_SCORE + depth : -WIN_SCORE - depth;
+  }
+
+  const cells = orderedEmptyCells(board);
+  if (cells.length === 0) return 0;
+  if (depth <= 0) return evaluateBoard(board, aiMark, humanMark);
+
+  if (maximizing) {
+    let best = -Infinity;
+    for (const index of cells) {
+      board[index] = aiMark;
+      const score = minimax(board, depth - 1, alpha, beta, false, aiMark, humanMark);
+      board[index] = '';
+      if (score > best) best = score;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+
+  let best = Infinity;
+  for (const index of cells) {
+    board[index] = humanMark;
+    const score = minimax(board, depth - 1, alpha, beta, true, aiMark, humanMark);
+    board[index] = '';
+    if (score < best) best = score;
+    if (best < beta) beta = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function findImmediateMove(board, mark) {
+  for (const index of orderedEmptyCells(board)) {
+    board[index] = mark;
+    const result = getWinner(board);
+    board[index] = '';
+    if (result) return index;
+  }
+  return -1;
+}
+
+function chooseAiMove(board, aiMark, humanMark) {
+  if (!board.includes('')) return -1;
+
+  const winningMove = findImmediateMove(board, aiMark);
+  if (winningMove !== -1) return winningMove;
+
+  const blockingMove = findImmediateMove(board, humanMark);
+  if (blockingMove !== -1) return blockingMove;
+
+  const scored = orderedEmptyCells(board).map((index) => {
+    board[index] = aiMark;
+    const score = minimax(board, SEARCH_DEPTH - 1, -Infinity, Infinity, false, aiMark, humanMark);
+    board[index] = '';
+    return { index, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const bestScore = scored[0].score;
+  const nearBest = scored.filter((move) => move.score >= bestScore - RANDOM_MARGIN);
+
+  if (nearBest.length > 1 && Math.random() < RANDOM_CHANCE) {
+    return nearBest[Math.floor(Math.random() * nearBest.length)].index;
+  }
+
+  const ties = scored.filter((move) => move.score === bestScore);
+  return ties[Math.floor(Math.random() * ties.length)].index;
+}
+
+function symbolOf(mark) {
+  if (mark === 'X') return '×';
+  if (mark === 'O') return '○';
+  return '';
+}
+
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const restartButton = document.getElementById('restart');
+const orderInputs = document.querySelectorAll('input[name="order"]');
+const cells = [];
+
+function buildBoard() {
+  for (let index = 0; index < TOTAL_CELLS; index++) {
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'cell';
+    cell.addEventListener('click', () => handleCellClick(index));
+    boardEl.appendChild(cell);
+    cells.push(cell);
+  }
+}
+
+function render() {
+  const canPlay = !state.gameOver && !state.thinking && state.current === state.playerMark;
+  cells.forEach((cell, index) => {
+    const mark = state.board[index];
+    const row = Math.floor(index / SIZE) + 1;
+    const column = (index % SIZE) + 1;
+    cell.textContent = symbolOf(mark);
+    cell.className = 'cell';
+    if (mark) cell.classList.add(mark === 'X' ? 'mark-x' : 'mark-o');
+    if (state.winningLine && state.winningLine.includes(index)) cell.classList.add('win');
+    cell.disabled = !canPlay || mark !== '';
+    cell.setAttribute(
+      'aria-label',
+      mark ? `${row}行${column}列 ${symbolOf(mark)}` : `${row}行${column}列 空き`
+    );
+  });
+  updateStatus();
+}
+
+function updateStatus() {
+  statusEl.className = 'status';
+  if (state.gameOver) {
+    if (state.winner === 'draw') {
+      statusEl.textContent = '引き分けです';
+      statusEl.classList.add('draw');
+    } else if (state.winner === state.playerMark) {
+      statusEl.textContent = 'あなたの勝ちです！';
+      statusEl.classList.add('win');
+    } else {
+      statusEl.textContent = 'コンピューターの勝ちです';
+      statusEl.classList.add('lose');
+    }
+    return;
+  }
+  if (state.thinking || state.current === state.aiMark) {
+    statusEl.textContent = 'コンピューターが考え中…';
+  } else {
+    statusEl.textContent = `あなたの番です（${symbolOf(state.playerMark)}）`;
+  }
+}
+
+function handleCellClick(index) {
+  if (state.gameOver || state.thinking || state.current !== state.playerMark) return;
+  if (state.board[index]) return;
+  placeMark(index, state.playerMark);
+}
+
+function placeMark(index, mark) {
+  state.board[index] = mark;
+  const result = getWinner(state.board);
+
+  if (result) {
+    state.gameOver = true;
+    state.winner = result.mark;
+    state.winningLine = result.line;
+  } else if (!state.board.includes('')) {
+    state.gameOver = true;
+    state.winner = 'draw';
+  } else {
+    state.current = mark === 'X' ? 'O' : 'X';
+  }
+
+  render();
+
+  if (!state.gameOver && state.current === state.aiMark) {
+    scheduleAiMove();
+  }
+}
+
+function scheduleAiMove() {
+  if (state.gameOver) return;
+  state.thinking = true;
+  render();
+  clearTimeout(aiTimer);
+  aiTimer = setTimeout(() => {
+    if (state.gameOver) {
+      state.thinking = false;
+      return;
+    }
+    const move = chooseAiMove(state.board, state.aiMark, state.playerMark);
+    state.thinking = false;
+    if (move === -1) {
+      render();
+      return;
+    }
+    placeMark(move, state.aiMark);
+  }, 350);
+}
+
+function startGame() {
+  clearTimeout(aiTimer);
+  const order = document.querySelector('input[name="order"]:checked').value;
+  state.playerMark = order === 'first' ? 'X' : 'O';
+  state.aiMark = state.playerMark === 'X' ? 'O' : 'X';
+  state.board = Array(TOTAL_CELLS).fill('');
+  state.current = 'X';
+  state.gameOver = false;
+  state.thinking = false;
+  state.winner = null;
+  state.winningLine = null;
+  render();
+
+  if (state.current === state.aiMark) {
+    scheduleAiMove();
+  }
+}
+
+buildBoard();
+restartButton.addEventListener('click', startGame);
+orderInputs.forEach((input) => input.addEventListener('change', startGame));
+startGame();
+</script>
+</body>
+</html>
